@@ -57,7 +57,8 @@ merge_passwd() {
 
 	# Check for compat, and apply the user there as well
 	[ -d "/compat/ubuntu" ] && export user && chroot /compat/ubuntu /bin/bash -c \
-		"/usr/sbin/useradd -m -u 1001 -d /home/${user} -s /bin/bash ${user} > /dev/null 2>&1"
+		"/usr/sbin/userdel \$(getent passwd 1001 | cut -d: -f1) > /dev/null 2>&1 \
+		; /usr/sbin/useradd -u 1001 -d /home/${user} -s /bin/bash ${user} > /dev/null 2>&1"
 }
 
 # Trap door for chroot execution while maintaining unique functions and syntax highlighting
