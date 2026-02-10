@@ -23,7 +23,8 @@ validate_param_class() {
 
 validate_param_control() {
     local _fn="validate_param_control"
-    validate_cell_dependency $1 $2 && return 0 || eval $(THROW 1)
+    [ "$1" = "none" ] && return 0
+    bootstrap_cell_ctx $1 "VAL_" && return 0 || eval $(THROW 1 _cellref $2 CJAIL $1)
 }
 
 validate_param_envsync() { ############################################################################################
@@ -32,30 +33,42 @@ validate_param_envsync() { #####################################################
 
 validate_param_gateway() {
     local _fn="validate_param_gateway"
-    validate_cell_dependency $1 $2 && return 0 || eval $(THROW 1)
+    [ "$1" = "none" ] && return 0
+    bootstrap_cell_ctx $1 "VAL_" && return 0 || eval $(THROW 1 _cellref $2 GATEWAY $1)
 }
 
 validate_param_ipv4() { 
-    local _fn="validate_param_ipv4" _val="$1" _cell="$2" _type _gw _gw_class _cli_confs
+    local _fn="validate_param_ipv4" _val="$1" _cell="$2" _type _gw _gw_type _cli_confs
 
     case $_val in 
         none|auto|DHCP) return 0 ;;  # Control values must return early (cant offload to checks.sh)
         *) assert_ipv4 $_val || eval $(THROW 1) ;;  # Purely checks for CIDR format
     esac
 
-    [ "$_type" ] || _type=$(query_cell_type $_cell)  # Validation differs by TYPE. Guarantee value
-    if [ "$_type" = "VM" ] ; then
-        eval $(WARN $_fn $_cell)        # Assigned IPV4 is harmless, but warn user it does nothing
-    else
-        _gw=$(query_cell_param $_cell GATEWAY)
-        _gw_type=$(query_cell_type $_gw)
-        _cli_confs=$(query_gw_client_configs $_gw)
+    # Validation differs by TYPE. Guarantee value
+    [ -z "$_type" ] && { _type=$(query_cell_type $_cell) || eval $(THROW 1) ;}
 
-        is_route_available $_gw $_val || eval $(THROW 1 $_fn $_cell $_val $_gw)  # Runtime collision
-        [ "$_cli_confs" ] && grep -Eqs "$_val" $_cli_confs \
-                          && eval $(WARN ${_fn}2 $_cell $_val $_gw)              # Config collision
-        [ "$_gw_type" = "VM" ] && eval $(WARN ${_fn}3 $_cell $_gw) # jail with VM-gw is usually DHCP 
+    # VM with CIDR is harmless, but warn user to prevent belief that it can be set like this
+    if [ "$_type" = "VM" ] ; then
+        eval $(WARN $_fn $_cell)
+        return 0
     fi
+
+    # Jails only. Check for collisions against both config, and runtime (if there is one)
+    _gw=$(query_cell_param $_cell GATEWAY) || eval $(THROW 1)
+    [ "$_gw" = "none" ] && return 0
+    _gw_type=$(query_cell_type $_gw) || eval $(THROW 1)
+    _cli_confs=$(query_gw_client_configs $_gw)
+
+    if is_cell_running $_gw ; then
+        is_route_available $_gw $_val || eval $(THROW 1 $_fn $_cell $_val $_gw)  # Runtime collision
+    fi
+
+    # Config collision
+    [ "$_cli_confs" ] && grep -Eqs "$_val" $_cli_confs && eval $(WARN ${_fn}2 $_cell $_val $_gw)
+
+    # Jails with a VM-gateway should usually be DHCP (but could have valid config with static CIDR)
+    [ "$_gw_type" = "VM" ] && eval $(WARN ${_fn}3 $_gw)
 }
 
 validate_param_mtu() {
@@ -71,26 +84,29 @@ validate_param_no_destroy() {
 
 validate_param_rootenv() {
     local _fn="validate_param_rootenv"
-    validate_cell_dependency $1 $2 && return 0 || eval $(THROW 1)
+    bootstrap_cell_ctx $1 "VAL_" && return 0 || eval $(THROW 1 _cellref $2 ROOTENV $1)
 }
 
 validate_param_r_zfs() {
     local _fn="validate_param_r_zfs"
-    is_zfs_exist "$1" || eval $(THROW 1 missing_zfs $2 $1)
+    is_zfs_exist "$1" || eval $(THROW 1 _missing_zfs $2 $1)
 }
 
+# NOTES: _pfx ($3) isnt required, but speeds validation.
 validate_param_template() {
-    local _fn="validate_param_template" _val="$1" _cell="$2" _class
+    local _fn="validate_param_template" _val="$1" _cell="$2" _pfx="$3" _class
 
     # Pivot the check based on CLASS
-    eval _class=\${${_prefix}CLASS}
+    [ "$_pfx" ] && _class=$(ctx_get ${_pfx}CLASS)
     [ -z "$_class" ] && _class=$(query_cell_param $_cell CLASS)
-    [ -z "$_class" ] && eval $(THROW $_fn $_cell $_val)
+    [ -z "$_class" ] && eval $(THROW 1 $_fn $_cell $_val)
 
     case $_class in 
-        disp*)  validate_cell_dependency $_val $_cell && return 0 || eval $(THROW 1) ;; # Hard dep
-        *)  [ "$_class" = "none" ] && return 0
-            validate_cell_dependency $_val $_cell && return 0 || eval $(WARN)
+        disp*)  bootstrap_cell_ctx $_val "VAL_" \
+                    && return 0 || eval $(THROW 1 _cellref $_cell TEMPLATE $_val)
+            ;;
+        *)  bootstrap_cell_ctx $_val "VAL_" \
+                && return 0 || eval $(WARN _cellref $_cell TEMPLATE $_val)
             ;;
     esac
     return 0
@@ -98,7 +114,7 @@ validate_param_template() {
 
 validate_param_u_zfs() {
     local _fn="validate_param_u_zfs"
-    is_zfs_exist "$1" || eval $(THROW 1 missing_zfs $2 $1) 
+    is_zfs_exist "$1" || eval $(THROW 1 _missing_zfs $2 $1) 
 }
 
 ###################################  SECTION 2: JAIL PARAMETERS  ################################### 
@@ -111,13 +127,13 @@ validate_param_cpuset() {
 }
 
 validate_param_maxmem() {
-    local _fn="validate_param_maxmem" _val="$1" _sysmem
+    local _fn="validate_param_maxmem" _val="$1"
     [ "$_val" = "none" ] && return 0
 
     assert_bytesize $_val || eval $(THROW 1)
+    query_sysmem
     _bytes=$(normalize_bytesize $_val) || { eval $(WARN memwarn $2) && return 0 ;}
-    _sysmem=$(query_sysmem)            || { eval $(WARN memwarn $2) && return 0 ;}
-    [ "$_bytes" -lt "$_sysmem" ] || { eval $(WARN $_fn $2 $_val $_bytes $_sysmem) && return 0 ;}
+    [ "$_bytes" -lt "$SYSMEM" ] || { eval $(WARN $_fn $2 $_val $_bytes $SYSMEM) && return 0 ;}
     return 0
 }
 
@@ -135,7 +151,7 @@ validate_param_seclvl() {
 
 validate_param_bhyveopts() {
     local _fn="validate_param_bhyveopts"
-    assert_bhyveopts $1
+    assert_bhyveopts $1 || eval $(THROW 1)
 }
 
 validate_param_bhyve_custm() {
@@ -144,19 +160,22 @@ validate_param_bhyve_custm() {
 }
 
 validate_param_memsize() {
-    local _fn="validate_param_memsize" _val="$1" _bytes _sysmem
+    local _fn="validate_param_memsize" _val="$1" _bytes
     assert_bytesize $_val || eval $(THROW 1)
-    _bytes=$(normalize_bytesize $_val) || { eval $(WARN $_fn) && return 0 ;}
-    _sysmem=$(query_sysmem)            || { eval $(WARN $_fn) && return 0 ;}
-    [ "$_bytes" -lt "$_sysmem" ] || eval $(THROW 1 $_fn $2 $_val $_bytes $_sysmem)
+    query_sysmem
+    _bytes=$(normalize_bytesize $_val)
+    [ "$_bytes" -lt "$SYSMEM" ] || eval $(THROW 1 $_fn $2 $_val $_bytes $SYSMEM)
 }
 
-validate_param_ppt() { #######################################################################################################
+validate_param_ppt() {
     local _fn="validate_param_ppt" _val="$1"
     [ "$_val" = "none" ] && return 0 ;
+    _val=$(echo $_val | sed "s#/#:#g")
     for _ppt in $_val ; do
-        quiet query_pci $_ppt || eval $(THROW 1 $_fn $2 $_ppt) ;
+        _result=$(hush pciconf -l "pci$_ppt")
+        [ "$_result" ] || eval $(THROW 1 $_fn $2 $_ppt)
     done
+    return 0
 }
 
 validate_param_taps() {
@@ -172,11 +191,9 @@ validate_param_tmux() {
 validate_param_vcpus() {
     local _fn="validate_param_vcpus" _val="$1"
     assert_vcpus $_val || eval $(THROW 1)
-
+    query_ncpus
     # Ensure that vpcus doesnt exceed the number of system cpus or bhyve limits
-    _syscpus=$(cpuset -g | head -1 | grep -oE "[^ \t]+\$")
-    : $(( _syscpus += 1 ))
-    { [ "$_val" -gt "$_syscpus" ] || [ "$_val" -gt 16 ] ;} && eval $(THROW 1 $_fn $2 $1 $_syscpus)
+    { [ "$_val" -gt "$NCPU" ] || [ "$_val" -gt 16 ] ;} && eval $(THROW 1 $_fn $2 $_val $NCPU)
     return 0
 }
 
@@ -196,29 +213,13 @@ validate_param_wiremem() {
 validate_cellname() {
     local _fn="validate_cellname" _val="$1" _r_zfs="$2" _u_zfs="$3"
     local _cellpath=$D_CELLS/$1 _jailpath=$D_JAILS/$1
-    assert_cellname $_val || $(THROW 1)
+    assert_cellname $_val || eval $(THROW 1)
     
     # Check config file path and zfs dataset clobber. MUTE because failure of `is_`, is passing.
-    is_path_exist -f $_cellpath && $(THROW 1 $_fn $_val path $_cellpath)
-    is_path_exist -f $_jailpath && $(THROW 1 $_fn $_val path $_jailpath)
-    is_zfs_exist "$_r_zfs" && $(THROW 1 $_fn $_val dataset $_r_zfs)
-    is_zfs_exist "$_u_zfs" && $(THROW 1 $_fn $_val dataset $_u_zfs)
+    is_path_exist -f $_cellpath && eval $(THROW 1 $_fn $_val path $_cellpath)
+    is_path_exist -f $_jailpath && eval $(THROW 1 $_fn $_val path $_jailpath)
+    is_zfs_exist "$_r_zfs" && eval $(THROW 1 $_fn $_val dataset $_r_zfs)
+    is_zfs_exist "$_u_zfs" && eval $(THROW 1 $_fn $_val dataset $_u_zfs)
     return 0      # No failures, cellname is available
 } 
-
-
-# IMPORTANT: This function depends on the parent passing _prefix and _type! 
-validate_cell_dependency() {
-    local _fn="validate_support_cell" _val="$1" _cellpath="$D_CELLS/$1" _jailpath="$D_JAILS/$1"
-    eval local _r_zfs="${_prefix}R_ZFS" _u_zfs="${_prefix}U_ZFS"  # $_prefix must come from parents
-
-    is_path_exist -f $_cellpath || $(THROW 1 $_fn $2 $_val $_cellpath)
-    is_zfs_exist "$_r_zfs"      || $(THROW 1 missing_zfs $2 $_val dataset $_r_zfs)
-    is_zfs_exist "$_u_zfs"      || $(THROW 1 missing_zfs $2 $_val dataset $_u_zfs)
-
-    if [ "$_type" = "JAIL" ] ; then   # $_type must come from parents
-        is_path_exist -f $_jailpath || $(THROW 1 $_fn $2 $_val $_jailpath)
-    fi
-    return 0
-}
 

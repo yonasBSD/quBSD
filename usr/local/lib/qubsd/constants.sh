@@ -15,6 +15,7 @@ export D_QCONF="$QETC/qubsd.conf.d"
 export D_CELLS="$D_QCONF/cells"
 export D_JCONF="$QETC/jail.conf.d"
 export D_JAILS="$D_JCONF/jails"
+export D_QRUN="$QRUN/cells"
 export D_QERR="$QRUN/err"
 export D_QX11="$QRUN/X11"
 export D_XFER="$QRUN/xfer"
@@ -63,7 +64,11 @@ export WARN_CNT=0
 export PARAMS_COMN="AUTOSTART AUTOSNAP BACKUP CLASS CONTROL ENVSYNC GATEWAY IPV4 MTU NO_DESTROY ROOTENV TEMPLATE R_ZFS U_ZFS"
 export PARAMS_JAIL="CPUSET MAXMEM SCHG SECLVL"
 export PARAMS_VM="BHYVEOPTS BHYVE_CUSTM MEMSIZE PPT TAPS TMUX VCPUS VNC WIREMEM"
+export CONTEXT="JCONF QCONF RCTX R_DSET R_MNT U_DSET U_MNT"   # Convenient context paths
 export CLASSES="rootjail appjail dispjail rootVM appVM dispVM"
+
+# System Query Storage (Reduces validation time to echo|grep delays, not sys query delays) 
+export SYS_QUERY="DATASETS NCPU ONJAILS ONVMS PCICONF SYSMEM ZMOUNTS" 
 
 # Function tracing. Used with `eval` to track logic flow for exception messages 
 # TEMPORARY: will be removed after overhaul
