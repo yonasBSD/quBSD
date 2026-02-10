@@ -112,8 +112,8 @@ validate_param_template() {
     return 0
 }
 
-validate_param_u_zfs() {
-    local _fn="validate_param_u_zfs"
+validate_param_p_zfs() {
+    local _fn="validate_param_p_zfs"
     is_zfs_exist "$1" || eval $(THROW 1 _missing_zfs $2 $1) 
 }
 

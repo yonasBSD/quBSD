@@ -61,14 +61,14 @@ export TRAP_SIGS="HUP INT TERM QUIT EXIT"
 export WARN_CNT=0
 
 # Runtime invariant lists
-export PARAMS_COMN="AUTOSTART AUTOSNAP BACKUP CLASS CONTROL ENVSYNC GATEWAY IPV4 MTU NO_DESTROY ROOTENV TEMPLATE R_ZFS U_ZFS"
+export PARAMS_COMN="AUTOSTART AUTOSNAP BACKUP CLASS CONTROL ENVSYNC GATEWAY IPV4 MTU NO_DESTROY P_ZFS R_ZFS ROOTENV TEMPLATE"
 export PARAMS_JAIL="CPUSET MAXMEM SCHG SECLVL"
 export PARAMS_VM="BHYVEOPTS BHYVE_CUSTM MEMSIZE PPT TAPS TMUX VCPUS VNC WIREMEM"
-export CONTEXT="JCONF QCONF RCTX R_DSET R_MNT U_DSET U_MNT"   # Convenient context paths
+export CONTEXT="JCONF QCONF RTCTX P_DSET P_MNT R_DSET R_MNT"   # Convenient context paths
 export CLASSES="rootjail appjail dispjail rootVM appVM dispVM"
 
 # System Query Storage (Reduces validation time to echo|grep delays, not sys query delays) 
-export SYS_QUERY="DATASETS NCPU ONJAILS ONVMS PCICONF SYSMEM ZMOUNTS" 
+export SYS_QUERY="DATASETS NCPU ONJAILS ONVMS PCICONF SYSMEM"
 
 # Function tracing. Used with `eval` to track logic flow for exception messages 
 # TEMPORARY: will be removed after overhaul

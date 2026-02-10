@@ -58,7 +58,7 @@ ctx_initialize() {
     # Cell-specific paths and datasets.
     eval ${_pfx}QCONF=$D_CELLS/$_cell               # qubsd.conf.d/cells
     eval ${_pfx}JCONF=$D_JAILS/$_cell               # jail.conf.d/jails
-    eval ${_pfx}RCTX=$D_QRUN/$_cell                 # /var/run/qubsd/cells/
+    eval ${_pfx}RTCTX=$D_QRUN/$_cell                # /var/run/qubsd/cells/  # Runtime context
 
     # Derive the cell type and store in context (existence of QCONF path is verified here as well)
     _type=$(query_cell_type $_cell) || eval $(THROW 1 ${_fn} $_cell)  # JAIL|VM, derived from CLASS
@@ -100,28 +100,28 @@ ctx_load_params() {
     return 0
 }
 
-# REQUIRES: load_parameters_ctx() FIRST, due to use of R_ZFS and U_ZFS of the cell
+# REQUIRES: load_parameters_ctx() FIRST, due to use of R_ZFS and P_ZFS of the cell
 ctx_add_zfs() {
     local _fn="ctx_add_zfs" _cell _pfx="$2" _r_dset _u_dset _rmnt _umnt
     assert_args_set 1 $1 && _cell="$1" || eval $(THROW 1)
 
     query_datasets  # Ensure that we have the dataset list (comes with mountpoints)
 
-    # Establish cell-specific dataset names based on R_ZFS and U_ZFS
+    # Establish cell-specific dataset names based on R_ZFS and P_ZFS
     _r_dset=$(ctx_get ${_pfx}R_ZFS)/$_cell
-    _u_dset=$(ctx_get ${_pfx}U_ZFS)/$_cell
+    _u_dset=$(ctx_get ${_pfx}P_ZFS)/$_cell
 
     # Set the prefix-specific global context for the datasets and mountpoints
     eval ${_pfx}R_DSET=$_r_dset
-    eval ${_pfx}U_DSET=$_u_dset
+    eval ${_pfx}P_DSET=$_p_dset
     eval ${_pfx}R_MNT=$(query_zfs_mountpoint $_r_dset)
-    eval ${_pfx}U_MNT=$(query_zfs_mountpoint $_u_dset)
+    eval ${_pfx}P_MNT=$(query_zfs_mountpoint $_p_dset)
 
     # Guarantee datasets exist. Checks integrated here in zfs_ctx to avoid fragmentation
     _rmnt=$(ctx_get ${_pfx}R_MNT)
-    _umnt=$(ctx_get ${_pfx}U_MNT)
+    _pmnt=$(ctx_get ${_pfx}P_MNT)
     [ "$_rmnt" ] || eval $(THROW 1 $_fn $_cell $_rmnt)  # Even zvol has "-" for mountpoint
-    [ "$_umnt" ] || eval $(THROW 1 $_fn $_cell $_umnt)
+    [ "$_pmnt" ] || eval $(THROW 1 $_fn $_cell $_pmnt)
 }
 
 # Orchestrator to validate an arbitrary list of PARAMS. WARN behavior opts. REQUIRE $1 (cell)

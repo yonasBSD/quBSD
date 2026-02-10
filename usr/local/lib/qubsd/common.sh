@@ -25,4 +25,4 @@
 
 # CURRENT (OLD) SYSTEM LIBRARIES TO EVENTUALLY BE REMOVED
 . $QLIB/qubsd_dump.sh   # Re-aggregation of old functions for cleaner view of new system
-. $QLIB/messages/lib_common.sh       # qubsd library messages
+. $QLIB/messages/lib_common.sh       # old qubsd library message script

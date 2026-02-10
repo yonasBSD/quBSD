@@ -118,7 +118,7 @@ query_gw_client_configs() {
     [ "$_val" ] && echo $_val && return 0 || return 1  # Not quoted -> returns single-line list
 }
 
-# Provide either the explicit cell shell from /overlay, or use the 0zusr default
+# Provide either the explicit cell shell from /overlay, or use the 0env default
 query_cell_shell() {
     local _fn="query_cell_shell" _cell="$1" _user="$2" _val
     assert_args_set 2 $_cell $_user || eval $(THROW 1)
@@ -127,11 +127,11 @@ query_cell_shell() {
     if [ "$_user" = "root" ] ; then
         _val=$(pw -V $R_MNT/$_cell/etc usershow -n root | awk -F':' '{print $10}')
     else
-        _val=$(awk -F':' '{print $10}' $U_MNT/$_cell/$PW_LOC)
+        _val=$(awk -F':' '{print $10}' $P_MNT/$_cell/$PW_LOC)
     fi
 
-    # Fallback to the 0zusr default, or if not found, use hardcoded
-    [ -z "$_val" ] && _val=$(awk -F':' '{print $10}' $U_MNT/0zusr/$PW_LOC)
+    # Fallback to the 0env default, or if not found, use hardcoded
+    [ -z "$_val" ] && _val=$(awk -F':' '{print $10}' $P_MNT/0env/$PW_LOC)
     [ -z "$_val" ] && _val="/bin/csh"
     echo "$_val" && return 0
 }

@@ -20,7 +20,7 @@ assert_args_set() {
 assert_bool_tf() {
     local _fn="assert_bool_tf"
     echo $1 | tr '[:upper:]' '[:lower:]' \
-            | grep -Eqs "^[[:blank:]]*(true|false)[[:blank:]]*\$" || eval $(THROW 1 $_fn)
+            | grep -Eqs "^(true|false)\$" || eval $(THROW 1 $_fn)
 }
 
 assert_cellname() {
@@ -38,7 +38,7 @@ assert_cellname() {
 
 assert_integer() {
     local _fn="assert_integer"
-    echo "$1" | grep -Eqs -- '^-*[0-9]+$' || eval $(THROW 1 $_fn $1)
+    echo "$1" | grep -Eqs -- '^(-|[0-9])[0-9]*$' || eval $(THROW 1 $_fn $1)
 }
 
 assert_int_comparison() {
@@ -87,7 +87,8 @@ assert_ipv4() {
                 _a3=${_b3##*.*.*.}
 
     # Ensures that each number is in the proper range
-    echo "$_val" | grep -Eqs "[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+/[[:digit:]]+" \
+    echo "$_val" \
+        | grep -Eqs "^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+/[[:digit:]]+\$" \
         || eval $(THROW 1 _invalid2 IPV4 "$_val" "Use CIDR notation with subnet")
 
     # Ensures that each digit is within the proper range
