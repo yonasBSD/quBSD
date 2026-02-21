@@ -5,9 +5,14 @@ quiet() { "$@" > /dev/null 2>&1 ;}     # Pure silence
 hush() { "$@" 2>/dev/null ;}           # Hush errors
 verbose() { echo ">> $*" >&2; "$@" ;}  # Command-specific debug tool
 
-# ERROR/TRACING SYSTEM
-rm_errfile() { rm -f $ERR ;}
+# TRAP MANAGAMENT
+rm_err() { rm -f $ERR ;}
+rm_rt_ctx() { rm -f $RT_CTX ;}
+trap_init() { trap 'eval "$TRAP"' ;}
+trap_push() { TRAP="$1 ; $TRAP" ;}
+trap_pop() { : ;}    #### STUB FOR NOW ####
 
+# ERROR/TRACING SYSTEM
 MUTE() { "$@" || { rm -f $ERR ; return 1 ;};}
 
 CLEAR() { WARN_CNT=0 ; rm -f $ERR ; return 0 ;}
@@ -66,14 +71,14 @@ WARN() {
 }
 
 # DEBUG FUNCTIONS FOR DEEPER ERROR PROBING
-setlog1() {
+debug1() {
 	set -x
-	rm /root/debug1 > /dev/null 2>&1
-	exec > /root/debug1 2>&1
+	rm $DEBUG1 > /dev/null 2>&1
+	exec > $DEBUG1 2>&1
 }
-setlog2() {
+debug2() {
 	set -x
-	rm /root/debug2 > /dev/null 2>&1
-	exec > /root/debug2 2>&1
+	rm $DEBUG2 > /dev/null 2>&1
+	exec > $DEBUG2 2>&1
 }
 

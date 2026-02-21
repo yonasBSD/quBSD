@@ -52,17 +52,21 @@ ctx_unset() {
 
 # Cell-specific derived paths, mountpoints, and datasets Reduces verbosity in later references
 ctx_initialize() {
-    local _fn="ctx_initialize" _pfx="$2" _cell _type
+    local _fn="ctx_initialize" _pfx="$2" _cell _type _caller
     assert_args_set 1 $1 && _cell="$1"  || eval $(THROW 1)
 
     # Cell-specific paths and datasets.
     eval ${_pfx}QCONF=$D_CELLS/$_cell               # qubsd.conf.d/cells
     eval ${_pfx}JCONF=$D_JAILS/$_cell               # jail.conf.d/jails
-    eval ${_pfx}RTCTX=$D_QRUN/$_cell                # /var/run/qubsd/cells/  # Runtime context
+    eval ${_pfx}RT_CTX=$D_QRUN/$_cell               # /var/run/qubsd/cells/  # Runtime context
 
     # Derive the cell type and store in context (existence of QCONF path is verified here as well)
     _type=$(query_cell_type $_cell) || eval $(THROW 1 ${_fn} $_cell)  # JAIL|VM, derived from CLASS
     eval ${_pfx}TYPE=$_type
+
+    # Store the root of the caller (qb|exec). Necessary for parsing control authority
+    _caller="${0##*/}"
+    eval ${_pfx}CALLER=${_caller%%[.-]*}
 
     # Load the cellname directly into the prefix
     [ "$_pfx" ] && eval $_pfx=$_cell
@@ -102,14 +106,14 @@ ctx_load_params() {
 
 # REQUIRES: load_parameters_ctx() FIRST, due to use of R_ZFS and P_ZFS of the cell
 ctx_add_zfs() {
-    local _fn="ctx_add_zfs" _cell _pfx="$2" _r_dset _u_dset _rmnt _umnt
+    local _fn="ctx_add_zfs" _cell _pfx="$2" _r_dset _p_dset _rmnt _pmnt
     assert_args_set 1 $1 && _cell="$1" || eval $(THROW 1)
 
     query_datasets  # Ensure that we have the dataset list (comes with mountpoints)
 
     # Establish cell-specific dataset names based on R_ZFS and P_ZFS
     _r_dset=$(ctx_get ${_pfx}R_ZFS)/$_cell
-    _u_dset=$(ctx_get ${_pfx}P_ZFS)/$_cell
+    _p_dset=$(ctx_get ${_pfx}P_ZFS)/$_cell
 
     # Set the prefix-specific global context for the datasets and mountpoints
     eval ${_pfx}R_DSET=$_r_dset
@@ -130,10 +134,10 @@ ctx_validate_params() {
     local _cell _type _pfx _PARAMS _params _funct _emit _ret _warn=0 _warn_start="$WARN_CNT"
     
     while getopts :p:P:w: _opts ; do case $_opts in
-        p)  _pfx="$OPTARG" ;        # Specify prefix, or use the raw PARAM name from constants.sh
-            eval _cell=\${$_pfx} ;; # Get the cellname stored in the prefix designator
-        P)  _PARAMS="$OPTARG" ;;       # Specify PARAM list, or use the list from constants.sh 
-        w)  _warn="$OPTARG" ;          # On WARN: [0->return 0 (default)] [1->return 2] [2->THROW]
+        p)  _pfx="$OPTARG" ;         # Specify prefix, or use the raw PARAM name from constants.sh
+            eval _cell=\${$_pfx} ;;  # Get the cellname stored in the prefix designator
+        P)  _PARAMS="$OPTARG" ;;     # Specify PARAM list, or use the list from constants.sh
+        w)  _warn="$OPTARG" ;        # On WARN: [0->return 0 (default)] [1->return 2] [2->THROW]
             assert_int_comparison -g 0 -l 2 $_warn || eval $(THROW 1 _internal4) ;;
         *)  eval $(THROW 1 _internal1) ;;
     esac  ;  done  ;  shift $(( OPTIND - 1 ))
@@ -161,4 +165,42 @@ ctx_validate_params() {
     is_path_exist -s $ERR && cat $ERR
     [ "$WARN_CNT" -gt "$_warn_start" ] && [ "$_warn" -gt 0 ] && CLEAR && return 2 || return 0
 }
+
+# Initializes a new cell runtime in /var/run. This will clobber any existing runtime file
+ctx_runtime_init() {
+    local _fn="ctx_write_runtime" _opts OPTIND OPTARG
+    local _cell _type _pfx _PARAMS _val _line
+
+    while getopts :p:P: _opts ; do case $_opts in
+        p)  _pfx="$OPTARG" ;         # Specify prefix, or use the raw PARAM name from constants.sh
+            eval _cell=\${$_pfx} ;;  # Get the cellname stored in the prefix designator
+        P)  _PARAMS="$OPTARG" ;;     # Specify PARAM list, or use the list from constants.sh
+        *)  eval $(THROW 1 _internal1) ;;
+    esac  ;  done  ;  shift $(( OPTIND - 1 ))
+
+    # Double check the function usage by requiring $1 to be equivalent to the _pfx ctx
+    assert_args_set 1 $1 || eval $(THROW 1)
+    [ -z "$_pfx" ] && _cell="$1" || _cell=$(ctx_get $_pfx)
+    [ "$_cell" = "$1" ] || eval $(THROW 1 _internal2 $_pfx $1 $_cell)
+
+    # Assemble PARAM names. $_PARAMS isnt global, CAPS distinguishes [:upper:] vs [:lower:] name
+    _type=$(ctx_get ${_pfx}TYPE)
+    [ -z "$_PARAMS" ] && eval _PARAMS=\"\${PARAMS_COMN} \${PARAMS_${_type}}\ \${CONTEXT}\"
+
+    rm -f $RT_CTX  # Remove runtime context if it exists
+
+    # Write PARAMS to the runtime context file
+    for _PARAM in $_PARAMS ; do
+        _val=$(ctx_get ${_pfx}${_PARAM})
+        _line='$_PARAM=\"$_val\"'
+        eval echo $_line >> $RT_CTX
+    done
+}
+
+ctx_runtime_upsert() {
+    local _fn="ctx_write_runtime"
+#### STUB FOR NOW ####
+}
+
+
 

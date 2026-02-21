@@ -1,6 +1,30 @@
 #!/bin/sh
 
+# Keeps main script execution syntax clean while allowing for global debug tools
+exec_cmd() {
+    local _fn="exec_cmd" _cmd="$1"
+    [ -z "$_cmd" ] && return 0   # Empty command would cause an error with printf
 
+    case $DRY_RUN:$VERBOSE in
+        true:*)
+            printf " # %s\n" "$_cmd" >&2
+            ;;
+        *:true)
+            printf " # %s\n" "$_cmd" >&2
+            eval "$_cmd" ; return $?
+            ;;
+        ':') eval "$_cmd" ; return $?
+            ;;
+        *)  echo "EXEC_MOD < $EXEC_MOD > global variable invalid. May only be [verbose|dry_run]"
+            exit 1   # Do not allow misconfiguration over exec at runtime
+            ;;
+    esac
+}
+
+
+########################################################################################
+##################  OLD  FUNCTIONS  ####################################################
+########################################################################################
 
 start_jail() {
 	# Starts jail. Performs sanity checks before starting. Logs results.

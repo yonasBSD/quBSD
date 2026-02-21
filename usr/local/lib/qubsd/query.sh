@@ -140,7 +140,21 @@ query_cell_shell() {
 
 query_datasets() {
     local _fn="query_datasets"
-    [ -z "$DATASETS" ] && DATASETS=$(zfs list -rHo name,mountpoint)
+    [ -z "$DATASETS" ] && DATASETS=$(zfs list -rHo name,mountpoint,mounted,origin)
+    return 0
+}
+
+query_rootsnaps() {
+    local _fn="query_snapshots"
+    # If passed $1, search is narrowed. Otherwise it pulls ALL snapshots on the system
+    [ -z "$ROOTSNAPS" ] && ROOTSNAPS=$(zfs list -Hrt snapshot -o name,written,creation $1)
+    return 0
+}
+
+query_prstsnaps() {
+    local _fn="query_prstsnaps"
+    # If passed $1, search is narrowed. Otherwise it pulls ALL snapshots on the system
+    [ -z "$PRSTSNAPS" ] && PRSTSNAPS=$(zfs list -Hrt snapshot -o name,written,creation $1)
     return 0
 }
 
@@ -189,6 +203,7 @@ query_running_ips() {
     fi
     [ "$_val" ] && echo $_val && return 0 || return 1  # Not quoted -> returns single-line list
 }
+
 
 ##########################################  X11 QUERIES  ###########################################
 

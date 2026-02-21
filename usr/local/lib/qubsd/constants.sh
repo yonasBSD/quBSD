@@ -20,6 +20,23 @@ export D_QERR="$QRUN/err"
 export D_QX11="$QRUN/X11"
 export D_XFER="$QRUN/xfer"
 
+# Exception system and diagnostics
+export TRAP="rm_err"
+export TRAP_SIGS="HUP INT TERM QUIT EXIT"
+export ERR="$D_QERR/$(basename $0).$$.err"
+export WARN_CNT=0
+export DEBUG1="/root/debug1"
+export DEBUG2="/root/debug2"
+: ${VERBOSE:=}     # [true|false] Print commands to console before running them
+: ${DRY_RUN:=}     # [true|false] Do not execute, just print commands to the console
+: ${TRACE:=}       # [true|false] Show the function trace in error/warning messages
+
+# Primary qubsd files
+export QCOMMON="$QLIB/common.sh"
+export DEF_BASE="$D_QCONF/defaults.base.conf"
+export DEF_JAIL="$D_QCONF/defaults.jail.conf"
+export DEF_VM="$D_QCONF/defaults.vm.conf"
+
 # Relative system directories
 export REL_ULOC="/usr/local"
 export REL_LBIN="$REL_ULOC/bin"
@@ -36,41 +53,37 @@ export OVETC="$OV/etc"
 export OVULOC="$OV/usr/local"
 
 # Common overlay files
-export FSTAB_LOC="$OVETC/fstab.local"  
-export RC_CONF_LOC="$OVETC/rc.conf.local"
-export RC_LOC="$OVETC/rc.local"
-export PW_LOC="$OVETC/master.passwd.local"
-export GP_LOC="$OVETC/group.local"
-
-# Primary qubsd files
-export QCOMMON="$QLIB/common.sh"
-export DEF_BASE="$D_QCONF/defaults.base.conf"
-export DEF_JAIL="$D_QCONF/defaults.jail.conf"
-export DEF_VM="$D_QCONF/defaults.vm.conf"
-
-# Temporary Overrides for overhaul/migration. Will be deleted later
-export JCONF="$QETC/jail.conf.d/jails"
-export QCONF="$QETC/qubsd.conf"
-export QLOG="/var/log/qubsd/quBSD.log"
-export VMTAPS="$QRUN/vm_taps"
-
-# Function tracing begins with the main script
-export BASENAME=$(basename $0)
-export ERR="$D_QERR/$BASENAME.$$.err"
-export TRAP_SIGS="HUP INT TERM QUIT EXIT"
-export WARN_CNT=0
+export OV_FSTAB_L="$OVETC/fstab.local"
+export OV_RC_CONF="$OVETC/rc.conf"
+export OV_RC_CONF_L="$OVETC/rc.conf.local"
+export OV_RC_L="$OVETC/rc.local"
+export OV_PW_L="$OVETC/master.passwd.local"
+export OV_GP_L="$OVETC/group.local"
 
 # Runtime invariant lists
 export PARAMS_COMN="AUTOSTART AUTOSNAP BACKUP CLASS CONTROL ENVSYNC GATEWAY IPV4 MTU NO_DESTROY P_ZFS R_ZFS ROOTENV TEMPLATE"
 export PARAMS_JAIL="CPUSET MAXMEM SCHG SECLVL"
 export PARAMS_VM="BHYVEOPTS BHYVE_CUSTM MEMSIZE PPT TAPS TMUX VCPUS VNC WIREMEM"
-export CONTEXT="JCONF QCONF RTCTX P_DSET P_MNT R_DSET R_MNT"   # Convenient context paths
-export CLASSES="rootjail appjail dispjail rootVM appVM dispVM"
+export CONTEXT="CALLER JCONF QCONF P_DSET P_MNT R_DSET R_MNT RT_CTX"   # Convenient context paths
+export CLASSES="rootjail appjail dispjail rootVM appVM dispVM cjail"
 
-# System Query Storage (Reduces validation time to echo|grep delays, not sys query delays) 
-export SYS_QUERY="DATASETS NCPU ONJAILS ONVMS PCICONF SYSMEM"
+# Kernel-query results storage for rapid stacked/looped information retreival
+export SYS_QUERY="DATASETS MOUNTS NCPU ONJAILS ONVMS PCICONF ROOTSNAPS PRSTSNAPS SYSMEM"
+
+
+
+#########################################   OLD  SYSTEM  CONSTANTS / OVERRIDES  ##########################################
 
 # Function tracing. Used with `eval` to track logic flow for exception messages 
-# TEMPORARY: will be removed after overhaul
+# Temporary Overrides and error definitions for overhaul/migration. Will be deleted later
+
+export JCONF="$QETC/jail.conf.d/jails"
+export QCONF="$QETC/qubsd.conf"
+export QLOG="/var/log/qubsd/quBSD.log"
+export VMTAPS="$QRUN/vm_taps"
+
 export _R0='_FN="$_fn_orig" ; return 0'
 export _R1='_FN="$_fn_orig" ; return 1'
+
+
+

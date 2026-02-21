@@ -27,7 +27,7 @@ validate_param_control() {
     bootstrap_cell_ctx $1 "VAL_" && return 0 || eval $(THROW 1 _cellref $2 CJAIL $1)
 }
 
-validate_param_envsync() { ############################################################################################
+validate_param_envsync() { ##########  STUB  FOR  NOW  ################################################################
     local _fn="validate_param_envsync"
 }
 
