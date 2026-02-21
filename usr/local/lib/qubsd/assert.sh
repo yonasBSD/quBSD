@@ -1,11 +1,11 @@
 #!/bin/sh
 
-################################  SECTION 1: GENERAL FORMAT CHECKS  ################################ 
+################################  SECTION 1: GENERAL FORMAT CHECKS  ################################
 
 assert_args_set() {
     local _fn="assert_args_set"
     local _require="$1" ; shift
-    local _count="$#" _i=1 
+    local _count="$#" _i=1
 
     [ "$_count" -lt "$_require" ] && eval $(THROW 1 $_fn)
 
@@ -24,10 +24,10 @@ assert_bool_tf() {
 }
 
 assert_cellname() {
-    local _fn="assert_cellname" _val="$1" 
+    local _fn="assert_cellname" _val="$1"
 
     # Trigger words to avoid, just in case.
-    case $_val in 
+    case $_val in
         none|qubsd) eval $(THROW 1 _invalid2 cellname $_val "Cannot be 'none' or 'qubsd'") ;;
     esac
 
@@ -54,13 +54,13 @@ assert_int_comparison() {
         *) eval $(THROW 1 _internal1) ;;  # getopts warning suppressed because we handle it here
     esac  ;  done  ;  shift $(( OPTIND - 1 ))
 
-    assert_integer "$1" && _val="$1" || eval $(THROW 1 _internal3 $1) 
+    assert_integer "$1" && _val="$1" || eval $(THROW 1 _internal3 $1)
 
     # Check each option one by one. Opts and _val already sanitized as integer format -> no quotes
     [ "$_g" ] && { [ $_val -ge $_g ] || eval $(THROW 1 ${_fn} $_val '<'  $_g) ;}
     [ "$_G" ] && { [ $_val -gt $_G ] || eval $(THROW 1 ${_fn} $_val '<=' $_G) ;}
     [ "$_l" ] && { [ $_val -le $_l ] || eval $(THROW 1 ${_fn} $_val '>'  $_l) ;}
-    [ "$_L" ] && { [ $_val -lt $_L ] || eval $(THROW 1 ${_fn} $_val '>=' $_L) ;} 
+    [ "$_L" ] && { [ $_val -lt $_L ] || eval $(THROW 1 ${_fn} $_val '>=' $_L) ;}
 
     return 0
 }
@@ -118,7 +118,7 @@ normalize_bytesize() {
 }
 
 
-###################################  SECTION 3: JAIL PARAMETERS  ################################### 
+###################################  SECTION 3: JAIL PARAMETERS  ###################################
 
 assert_cpuset() {
     local _fn="assert_cpuset"
@@ -130,7 +130,7 @@ assert_cpuset() {
 assert_schg() {
     local _fn="assert_schg"
     case $1 in
-        none|sys|all) return 0 ;; 
+        none|sys|all) return 0 ;;
         *) eval $(THROW 1 _invalid2 SCHG $1 "Must be <none|sys|all>") ;;
     esac
 }
@@ -138,8 +138,8 @@ assert_schg() {
 assert_seclvl() {
     local _fn="assert_seclvl"
     case $1 in
-        none|-1|-0|0|1|2|3) return 0 ;;   
-        *) eval $(THROW 1 _invalid2 SECLVL $1 "Must be <none|-1|0|1|2|3>") ;; 
+        none|-1|-0|0|1|2|3) return 0 ;;
+        *) eval $(THROW 1 _invalid2 SECLVL $1 "Must be <none|-1|0|1|2|3>") ;;
     esac
 }
 
@@ -152,7 +152,7 @@ assert_bhyveopts() {
 
     # Only includes bhyve opts with no argument
     echo "$_val" | grep -Eqs -- '^[AaCDeHhPSuWwxY]+$' || eval $(THROW 1 ${_fn}1 BHYVEOPTS $_val)
- 
+
     # No duplicate characters
     [ "$(echo "$_val" | fold -w1 | sort | uniq -d | wc -l)" -gt 0 ] \
         && eval $(THROW 1 ${_fn}2 BHYVEOPTS $_val)
