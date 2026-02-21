@@ -39,8 +39,8 @@ EOF
 
     else
         # Ensure against stale rootenv snapshot by checking 'written'
-        _snap=$(echo "$_rootsnaps" | head -1)
-        [ "$(echo $_snap | awk '{print $2}')" = "0" ] && echo $_snap && return 0
+        _snap=$(echo "$_rootsnaps" | head -1 | awk '{print $1}')
+        [ "$(echo $_rootsnaps | head -1 | awk '{print $2}')" = "0" ] && echo $_snap && return 0
 
         # Last avail rootenv snap is in fact stale (or non-existent). Prepare a new one.
         _now=$(date +%s)
@@ -59,31 +59,13 @@ resolve_persist_snapname() {
     _prstsnaps=$(echo "$PRSTSNAPS" | grep $_dset \
                 | awk '{a[NR]=$0} END{for(i=NR;i>=1;i--) print a[i]}')
 
-    # For safety, running ROOTENV snapshot should be taken from before it was started
-    if _psmod="-p $(hush pgrep -f "bhyve: $ROOTENV")" || _psmod="-J $(hush jls -j $ROOTENV jid)" ; then
-        _lstart=$(ps -o lstart $_psmod | tail -1 | xargs -I@ date -j -f "%a %b %d %T %Y" @ +"%s")
+    # Persist dataset can tolerate running ROOTENV. But ensure it's not stale, via 'written'
+    _snap=$(echo "$_prstsnaps" | head -1 | awk '{print $1}')
+    [ "$(echo $_prstsnaps | head -1 | awk '{print $2}')" = "0" ] && echo $_snap && return 0
 
-        while IFS= read -r _line ; do
-            # Extract snapshot, date string, and covert the timestamp
-            _snap=$(echo "$_line" | awk '{print $1}')
-            _date=$(echo "$_line" | awk '{print $3, $4, $5, $6, $7}')
-            _timestamp=$(date -j -f "%a %b %d %H:%M %Y" "$_date" +"%s")
-
-            # Compare data, continue or break
-            [ "$_lstart" -gt "$_timestamp" ] && echo $_snap && return 0
-        done << EOF
-$_prstsnaps
-EOF
-
-    else
-        # Ensure against stale rootenv snapshot by checking 'written'
-        _snap=$(echo "$_prstsnaps" | head -1)
-        [ "$(echo $_snap | awk '{print $2}')" = "0" ] && echo $_snap && return 0
-
-        # Last avail rootenv snap is in fact stale (or non-existent). Prepare a new one.
-        _now=$(date +%s)
-        echo "$_dset@${_now}" && return 2   # '2' tells caller to perform a new snapshot
-    fi
+    # Last avail rootenv snap is in fact stale (or non-existent). Prepare a new one.
+    _now=$(date +%s)
+    echo "$_dset@$_now" && return 2   # '2' tells caller to perform a new snapshot
 }
 
 compose_snapshot_context() {

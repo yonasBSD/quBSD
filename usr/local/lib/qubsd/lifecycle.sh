@@ -284,6 +284,21 @@ set_freebsd_pw() {
 	[ -e "$grp_local" ] && sed -i '' -E "s/(:|,)$_template(,|[[:blank:]]|\$)/\1$_jail\2/g" $grp_local
 }
 
+
+fix_freebsd_pw() {
+    local _fn="set_freebsd_pw" _cell="$1" _templ="$2" _etc_local="$3" _pwd_local="$4" _grp_local="$5"
+
+    # Drop the flags for the home directory and rename it from template to dispjail name
+    hush chflags -R noschg $_cell/home
+    hush mv $_cell/home/$_templ $_cell/home/$_cell
+
+    # Change the local pwd from template name to dispjail name
+    hush chflags -R noschg $_etc_local
+    hush sed -i '' -E "s|^$_templ:|$_cell:|g" $_pwd_local
+    hush sed -i '' -E "s|/home/$_templ:|/home/$_cell:|g" $_pwd_local
+    hush sed -i '' -E "s/(:|,)$_templ(,|[[:blank:]]|\$)/\1$_cell\2/g" $_grp_local
+}
+
 set_linux_pw() {
 	# EMPTY FOR NOW. WILL FILL LATER WHEN THE LINUS OVERLAYFS IS A KNOWN ENTITY
 	return 0

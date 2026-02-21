@@ -3,7 +3,7 @@
 . $2       # Passed by base.conf
 
 CELL=$1
-RT_CTX=$D_QRUN/$CELL  
+RT_CTX=$D_QRUN/$CELL
 trap_init
 
 compose_commands() {
@@ -25,14 +25,18 @@ compose_commands() {
     _CMD_MKDIRS="mkdir -p $P_MNT/$OV $P_MNT/home"
 
     # Only destroy/reclone zroot for non-rootjails
-    if [ ! "$CLASS" = "rootjail" ] ; then 
+    if [ ! "$CLASS" = "rootjail" ] ; then
         # Need the root dataset of the rootenv, to choose the snapshot
         bootstrap_cell_ctx $ROOTENV "R_" || eval $(THROW 1 _generic "< $ROOTENV > bootstrap failed")
-        _rootsnap=$(resolve_rootenv_snapname $(ctx_get R_R_ZFS)) || eval $(THROW 1 _generic "failed to get root snapshot")
-        if [ "$?" = 2 ] ; then
+        _rootsnap=$(resolve_rootenv_snapname $(ctx_get R_R_DSET))
+
+        if [ "$?" = 1 ] ; then
+            eval $(THROW 1 _generic "failed to get root snapshot name")
+        elif [ "$?" = 2 ] ; then
             _die=$(( $(date +%s) + 30 ))
             _CMD_SNAPSHOT_ZROOT="zfs snapshot -o qb:dest_date=$_die -o qb:autosnap=- -o qb:autocreated=yes $_rootsnap"
         fi
+
         _CMD_DESTROY_ZROOT="zfs destroy -rRf $R_DSET"
         _CMD_CLONE_ZROOT="zfs clone -o qb:autosnap=false $_rootsnap $R_DSET"
     fi
@@ -41,14 +45,18 @@ compose_commands() {
     if [ "$CLASS" = "dispjail" ] ; then
         # Need the persist dataset of the template, to choose the snapshot
         bootstrap_cell_ctx $TEMPLATE "T_" || eval $(THROW 1 _generic "< $TEMPLATE > bootstrap failed")
-        _templsnap=$(resolve_persist_snapname $(ctx_get T_R_ZFS))
+        _templsnap=$(resolve_persist_snapname $(ctx_get T_P_DSET))
 
-        if [ "$?" = 2 ] ; then
+        if [ "$?" = 1 ] ; then
+            eval $(THROW 1 _generic "failed to get persistent snapshot name")
+        elif [ "$?" = 2 ] ; then
             _die=$(( $(date +%s) + 30 ))
             _CMD_SNAPSHOT_PERSIST="zfs snapshot -o qb:dest_date=$_die -o qb:autosnap=- -o qb:autocreated=yes $_templsnap"
         fi
+
         _CMD_DESTROY_PERSIST="zfs destroy -rRf $P_DSET"
         _CMD_CLONE_PERSIST="zfs clone -o qb:autosnap=false $_templsnap $P_DSET"
+        _CMD_FIX_PW="fix_freebsd_pw $CELL $(ctx_get T_) $P_MNT/$OVETC $P_MNT/$OV_PW_L $P_MNT/$OV_GP_L"
     fi
 }
 
@@ -64,14 +72,14 @@ main() {
 
     compose_commands || eval $(THROW 1)
 
-    # Execute the runtime 
+    # Execute the runtime
     _COMMANDS="_CMD_UNMOUNT _CMD_ZFS_MOUNT _CMD_MKDIRS _CMD_DESTROY_ZROOT _CMD_SNAPSHOT_ZROOT
-               _CMD_CLONE_ZROOT _CMD_SNAPSHOT_PERS _CMD_DESTROY_PERS _CMD_CLONE_PERS"    
+               _CMD_CLONE_ZROOT _CMD_SNAPSHOT_PERS _CMD_DESTROY_PERSIST _CMD_CLONE_PERSIST _CMD_FIX_PW"
     for _command in $_COMMANDS ; do
-#        exec_cmd "$(get_ctx $_command)" || eval $(THROW 1)
+        exec_cmd "$(ctx_get $_command)" || eval $(THROW 1)
     done
 }
 
-main || { eval $(THROW 1 _generic "$0: ERROR") ; exit 1 ;}
+main || { cat $ERR ; exit 1 ;}
 
 exit 0   # Guarantee that `jail` does not abort startup

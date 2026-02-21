@@ -145,7 +145,7 @@ query_datasets() {
 }
 
 query_rootsnaps() {
-    local _fn="query_snapshots"
+    local _fn="query_rootsnaps"
     # If passed $1, search is narrowed. Otherwise it pulls ALL snapshots on the system
     [ -z "$ROOTSNAPS" ] && ROOTSNAPS=$(zfs list -Hrt snapshot -o name,written,creation $1)
     return 0
