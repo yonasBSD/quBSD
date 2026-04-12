@@ -173,7 +173,7 @@ compose_vif_cmds() {
             # Resolve the IP. Assume "auto" implies DHCP (otherwise wouldnt make sense).
             case $_ipv4 in
                 ''|none) : ;;  # Nothing to do
-                auto|DHCP) _cl_grp="$_cl_grp group QB-DHCPD" ;;
+                auto|DHCP) _cl_grp="$_cl_grp group QB-DHCP" ;;
                 *) _cl_ip=$_ipv4 ;;
             esac
         ;;
@@ -202,13 +202,19 @@ compose_vif_cmds() {
 
             # Resolve the IP
             case $_cl_ipv4 in
-                ''|none) : ;;  # Nothing to do
-                auto|DHCP)
-                    _resolve_available_ipv4 _cl_ip $_ip1 2 30 true  # Assign $_cl_ip, update RT_IPS
-                    _gw_ip=${_cl_ip%.*/*}.1/${_cl_ip#*/}
+                none|'') : # Nothing to do
                 ;;
-                * ) _cl_ip=$_cl_ipv4
-                    _gw_ip=${_cl_ip%.*/*}.1/${_cl_ip#*/}
+                auto)  # resolve available IPs and assign
+                    _resolve_available_ipv4 _gw_ip $_ip1 1 30 true  # Assign $_gw_ip, update RT_IPS
+                    _cl_ip=${_gw_ip%.*/*}.2/${_gw_ip#*/}
+                ;;
+                DHCP)  # Resolve gw IP, tag cl with ifconfig group. (This isnt really recommended)
+                    _resolve_available_ipv4 _gw_ip $_ip1 1 30 true  # Assign $_gw_ip, update RT_IPS
+                    _cl_grp="$_cl_grp group QB-DHCP"
+                ;;
+                * ) # Enforce the gw/cl .1/.2 IP ending at the most basic level
+                    _gw_ip=${_cl_ipv4%.*/*}.1/${_cl_ip#*/}
+                    _cl_ip=${_cl_ipv4%.*/*}.2/${_cl_ip#*/}
                 ;;
             esac
         ;;
@@ -275,13 +281,11 @@ compose_network_stack_cmds() {
     if is_cell_running $_cl_gw && ctx_load_file $D_RUNTM/$_cl_gw/ctx.conf "gw_" ; then
         _resolve_gw_context $_cl_gw "gw_"  # Downward scoped gateway variables
         compose_vif_cmds      # Appends global command: _CMD_NETWORK_VIF
-#       compose_config_cmds   # Appends global command: _CMD_NETWORK_CONFIG
-#       compose_service_cmds  # Appends global command: _CMD_NETWORK_SERVICE
     fi
 
     # Commands that connect CELL to its clients
-    ctx_unset "gw_"                    # Clean prefix. Ensures no stale values creep through
-    _resolve_gw_context $CELL $_pfx    # CELL becomes the gateway. Variables get downward scoped
+    ctx_unset "gw_"                   # Clean prefix. Ensures no stale values creep through
+    _resolve_gw_context $CELL $_pfx   # CELL becomes the gateway. Variables get downward scoped
     for _client in $_clients ; do
 
         # Necessary context elements. Clean the prefix, file must load, downward scope cl variables
@@ -289,11 +293,13 @@ compose_network_stack_cmds() {
         ctx_unset "cl_"
         ctx_load_file $D_RUNTM/$_client/ctx.conf "cl_" || continue
         _resolve_cl_context "$_client" "cl_"
-
         compose_vif_cmds      # Appends global command: _CMD_NETWORK_VIF
-#       compose_config_cmds   # Appends global command: _CMD_NETWORK_CONFIG
-#       compose_service_cmds  # Appends global command: _CMD_NETWORK_SERVICE
     done
+
+    # Ensure that flags are down and /etc/resolvconf.conf can be modified by qubsd-netif in the jail
+    _jetc="$(ctx_get ${_pfx}R_MNT)/etc"
+    _CMD_NETWORK_VIF="$(printf "%b" "$_CMD_NETWORK_VIF\n" \
+        "hush chflags noschg -R $_jetc $_jetc/resolv.conf $_jetc/resolvconf.conf")"
 }
 
 # Return the least-stale snapshot possible. This could be an existing snapshot with no changes,
