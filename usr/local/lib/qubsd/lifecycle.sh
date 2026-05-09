@@ -24,12 +24,13 @@ execute_commands() {
 }
 
 # Keeps main script execution syntax clean while allowing for global debug tools
+# In order for user input to work, we must redirect stdin, as the while IFS command is in a subshell
 exec_cmd() {
     local _fn="exec_cmd"
     case $DRY_RUN::$VERBOSE in
         true::*|TRUE::*) printf "  # %s\n" "$_cmd" ;;
-        *::true|*::TRUE) printf "  # %s\n" "$_cmd" ; eval "$_cmd" ;;
-        *) eval "$_cmd" ;;
+        *::true|*::TRUE) printf "  # %s\n" "$_cmd" ; eval "$_cmd" < /dev/tty ;;
+        *) eval "$_cmd" < /dev/tty ;;
     esac
 }
 
