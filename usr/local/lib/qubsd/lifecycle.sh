@@ -15,16 +15,20 @@ execute_commands() {
     # Loop over all passed commands. _cmds could have multiple lines.
     for _cmds in $_commands ; do
         _cmds=$(ctx_get $_cmds | sed '/^$/d')  # Remove blanks
+        [ -z "$_cmds" ] && continue
 
-        # while-read loop enables consistent printing, execution, and error reporting
-        printf "%s\n" "$_cmds" | while IFS= read -r _cmd ; do
+        # while-read provides consistent printing, execution, and error reporting
+        while IFS= read -r _cmd ; do
             exec_cmd || eval $(THROW 241 $_fn "$_cmd")
-        done
+
+        # Avoid subshell creation with heredoc (need the tty). print|while pipe creates subshell
+        done << EOF
+$_cmds
+EOF
     done
 }
 
 # Keeps main script execution syntax clean while allowing for global debug tools
-# In order for user input to work, we must redirect stdin, as the while IFS command is in a subshell
 exec_cmd() {
     local _fn="exec_cmd"
     case $DRY_RUN::$VERBOSE in
