@@ -3,7 +3,7 @@
 # _CMDS are constructed to separate commands by lines, not semicolons. Thus, each line can be
 # read with some combo of: printed/executed; while preserving and printing any failure lines.
 execute_commands() {
-    local _fn="execute_commands" _commands _cmds _cmd
+    local _fn="execute_commands" _commands _cmds _cmd _line _lines
     assert_args_set 1 "$1" && _commands="$1"
 
     # Sanitize execution globals to ensure against user typos like 'fals' (intended 'false')
@@ -17,14 +17,14 @@ execute_commands() {
         _cmds=$(ctx_get $_cmds | sed '/^$/d')  # Remove blanks
         [ -z "$_cmds" ] && continue
 
-        # while-read provides consistent printing, execution, and error reporting
-        while IFS= read -r _cmd ; do
+        # Use index to execute lines. `while read` creates a subshell, which borks tty on user input
+        _lines=$(echo "$_cmds" | wc -l)
+        _line=1
+        while [ "$_line" -le "$_lines" ] ; do
+            _cmd=$(echo "$_cmds" | sed -n "${_line}p")
             exec_cmd || eval $(THROW 241 $_fn "$_cmd")
-
-        # Avoid subshell creation with heredoc (need the tty). print|while pipe creates subshell
-        done << EOF
-$_cmds
-EOF
+            _line=$(( _line + 1 ))
+        done
     done
 }
 
