@@ -33,8 +33,8 @@ exec_cmd() {
     local _fn="exec_cmd"
     case $DRY_RUN::$VERBOSE in
         true::*|TRUE::*) printf "  # %s\n" "$_cmd" ;;
-        *::true|*::TRUE) printf "  # %s\n" "$_cmd" ; eval "$_cmd" < /dev/tty ;;
-        *) eval "$_cmd" < /dev/tty ;;
+        *::true|*::TRUE) printf "  # %s\n" "$_cmd" ; eval "$_cmd" ;;
+        *) eval "$_cmd" ;;
     esac
 }
 
