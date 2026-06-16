@@ -73,7 +73,7 @@ create_ephmjail() {
 	_JAIL="EPHM-${_JAIL}"
 
 	_cycle=0
-	while ! chk_avail_jailname -- "$_JAIL" ; do    # Find an available jail name
+	while ! validate_cellname "$_JAIL" $R_ZFS/$_JAIL $U_ZFS/$_JAIL ; do  # Find an available jail name
 		_cycle=$(( _cycle + 1 ))
 		_JAIL="${_JAIL}_${_cycle}"
 		[ -n "$cycle_user" ] && _USER="${_USER}_${_cycle}"
@@ -167,7 +167,7 @@ run_jail_command() {
 		get_msg2 -m _m3
 	fi
 
-	# Run the jexec command 
+	# Run the jexec command
 	rm_errfiles	; trap - HUP INT TERM QUIT EXIT
 	case "${_COMPAT}_${_X11}" in
 		_)      eval "jexec -l -U $_USER $_JAIL /bin/sh -c '$_CMD'" $_REDIRECT ;;
@@ -195,15 +195,14 @@ connect_vm_session() {
 		done
 
 		# Launch vnc viewer
-		_vncport=$(sockstat -P tcp \
-							| sed -nE "s/.*bhyve[[:blank:]]+${_vmpid}.*\*:([[:digit:]]+).*/\1/p")
-
+        _vncport=$(sockstat -P tcp \
+            | awk -v pid="$_vmpid" '$2=="bhyve"&&$3==pid{sub(/^.*:/,"",$6) ; print $6 ; exit}')
 		if [ -z "$_vncport" ] ; then
 			_novnc="true"
 		else
 			# Remove errfiles before permanent new program launches
 			rm_errfiles ; trap - HUP INT TERM QUIT EXIT
-			vncviewer 0.0.0.0:$_vncport > /dev/null 2>&1 &
+			vncviewer 127.0.0.1:$_vncport > /dev/null 2>&1 &
 		fi
 	else
 		_novnc="true"
@@ -244,7 +243,7 @@ main() {
 	if chk_isvm "$_JAIL" ; then
 		connect_vm_session
 	else
-		run_jail_command		
+		run_jail_command
 	fi
 }
 
